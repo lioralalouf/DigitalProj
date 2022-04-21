@@ -1,0 +1,561 @@
+package com.tevapharm.automation.dhp.tests.dss.data;
+
+
+import com.aventstack.extentreports.ExtentTest;
+import com.tevapharm.attte.annotations.Traceability;
+import com.tevapharm.attte.extentReports.ExtentManager;
+import com.tevapharm.attte.extentReports.TestListeners;
+import com.tevapharm.attte.generators.*;
+import com.tevapharm.attte.models.database.*;
+import com.tevapharm.attte.models.request.ConnectRequest;
+import com.tevapharm.attte.models.request.GenerateApiRequest;
+import com.tevapharm.attte.models.request.PartnerRequest;
+import com.tevapharm.attte.models.request.account.ProfileCreationRequest;
+import com.tevapharm.attte.models.request.inhalation.UploadInhalationsRequest;
+import com.tevapharm.attte.models.request.medicaldevice.RegisterMedicalDeviceRequest;
+import com.tevapharm.attte.models.request.mobiledevice.RegisterMobileApplicationRequest;
+import com.tevapharm.attte.models.request.questionnaire.UploadDsasRequest;
+import com.tevapharm.attte.reporter.ConsoleReportFilter;
+import com.tevapharm.attte.repository.PartnerUserConnectionRepository;
+import com.tevapharm.attte.testing.PartnerApiTestBase;
+import com.tevapharm.attte.utils.IpAddressUtils;
+import com.tevapharm.attte.utils.LambdaUtils;
+import com.tevapharm.attte.utils.PropertyUtils;
+import com.tevapharm.attte.utils.TevaAssert;
+import io.restassured.path.json.JsonPath;
+import io.restassured.response.Response;
+import org.testng.annotations.Listeners;
+import org.testng.annotations.Test;
+
+import java.io.IOException;
+import java.text.ParseException;
+import java.util.*;
+
+import static io.restassured.RestAssured.given;
+
+@Listeners(TestListeners.class)
+public class GetUserDsaByPartnerNegativeTest extends PartnerApiTestBase {
+    private Profile profile;
+    private MedicalDevice medicalDevice;
+    private MobileApplication mobileApplication;
+    private String apiKey;
+    private String partnerID;
+    private static final IpAddressUtils ipa = new IpAddressUtils();
+    double dVolume;
+
+    @Test(priority = 1, testName = "Get user's dsa data by partner for DSAs been created before consent date")
+    @Traceability(FS = {"1657"})
+    public void tc01_getDsaInvalidConsentDate() throws IOException, InterruptedException, org.json.simple.parser.ParseException {
+        ExtentTest extentTest = ExtentManager.getTest(this.getClass());
+        String patientID = UUID.randomUUID().toString();
+
+        Map<String, String> environment = LambdaUtils.getLambdaConfiguration(PropertyUtils.readProperty("getPatientInhalations"));
+
+        extentTest.info("Set volumeTransferEnabled and peakFlowTransferEnabled As true");
+        environment.put("volumeTransferEnabled", "true");
+        environment.put("peakFlowTransferEnabled", "true");
+
+        LambdaUtils.updateLambdaConfiguration(PropertyUtils.readProperty("getPatientInhalations"), environment);
+
+        extentTest.info("Onboard a new partner");
+        PartnerRequest partnerRequest = objectMapper.readValue(PropertyUtils.readRequest("partner", "newPartner"),
+                PartnerRequest.class);
+        partnerRequest.name = UUID.randomUUID().toString();
+
+        this.partnerID = createPartner(extentTest, partnerRequest);
+
+        extentTest.info("Generate new API key with valid read data scope");
+
+        //generate api key
+        GenerateApiRequest apiKeyRequest = objectMapper.readValue(PropertyUtils.readRequest("partner", "newApiKey"),
+                GenerateApiRequest.class);
+
+        Response response = given().log().all()
+                .filter(new ConsoleReportFilter(extentTest))
+                .baseUri(PropertyUtils.readProperty("adminUrl"))
+                .basePath("configuration/partners")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + accessToken)
+                .pathParam("partnerID", partnerID)
+                .body(apiKeyRequest)
+                .when()
+                .post("/{partnerID}/key")
+                .then()
+                .log().all()
+                .extract().response();
+
+        JsonPath extractor = response.jsonPath();
+        String apiKey = extractor.get("apiKey");
+        registerApiKey(partnerID, apiKey);
+        
+        extentTest.info("Create new user account");
+        profile = ProfileGenerator.getProfile();
+        Profile profile = ProfileGenerator.getProfile();
+        ProfileCreationRequest profileCreationRequest = new ProfileCreationRequest(profile);
+
+        given().log().all()
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .filter(new ConsoleReportFilter(extentTest))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .header("email", profile.getEmail())
+                .header("external-entity-id", profile.getExternalEntityID())
+                .request()
+                .body(profileCreationRequest)
+                .when()
+                .log().all()
+                .post("/account/profile")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        extentTest.info("Create new mobile device to the user");
+        mobileApplication = MobileApplicationGenerator.getATTTE();
+        MobileApplication mobileApplication = MobileApplicationGenerator.getATTTE();
+        RegisterMobileApplicationRequest registerMobileApplicationRequest = new RegisterMobileApplicationRequest(mobileApplication);
+
+        given()
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .filter(new ConsoleReportFilter(extentTest))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .header("external-entity-id", profile.getExternalEntityID())
+                .request()
+                .body(registerMobileApplicationRequest)
+                .when()
+                .log().all()
+                .post("/application/mobile")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        String userUUID = mobileApplication.getUUID();
+
+        extentTest.info("Create Digihaler medical device to the user");
+        MedicalDevice medicalDevice = MedicalDeviceGenerator.getProAir();
+
+        RegisterMedicalDeviceRequest registerMedicalDeviceRequest = new RegisterMedicalDeviceRequest(medicalDevice);
+
+        given()
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .filter(new ConsoleReportFilter(extentTest))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .header("external-entity-id", profile.getExternalEntityID())
+                .header("device-uuid", mobileApplication.getUUID())
+                .request()
+                .body(registerMedicalDeviceRequest)
+                .when()
+                .log().all()
+                .post("/device/digihaler")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        extentTest.info("Upload inhalations for the user");
+        List<Inhalation> inhalations = new ArrayList<>();
+
+        for (int i = 0; i < 2; i++) {
+            Inhalation inhalation = InhalationGenerator.generateGoodInhalation(medicalDevice);
+            Inhalation inhalation2 = InhalationGenerator.generateFairInhalation(medicalDevice);
+            inhalations.add(inhalation);
+            inhalations.add(inhalation2);
+            inhalation.event.id = 1;
+            inhalation.event.peakFlow = 90;
+            inhalation.event.volume = 5;
+            inhalation2.event.id = 2;
+            inhalation2.event.peakFlow = 90;
+            inhalation2.event.volume = 5;
+
+        }
+
+        UploadInhalationsRequest uploadInhalationsRequest = new UploadInhalationsRequest(inhalations);
+
+        given()
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .filter(new ConsoleReportFilter(extentTest))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .header("external-entity-id", profile.getExternalEntityID())
+                .header("device-uuid", mobileApplication.getUUID())
+                .request()
+                .body(uploadInhalationsRequest)
+                .when()
+                .log().all()
+                .post(" /medication/administration/inhalations")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        extentTest.info("Provision user and partner to get state token and extract the decoded provision ID from it");
+        Response response3 = given()
+                .filter(new ConsoleReportFilter(extentTest))
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .header("X-API-Key", apiKey)
+                .pathParam("patientID", patientID)
+                .post("/data/provision/{patientID}")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        JsonPath extractor2 = response3.jsonPath();
+
+        String stateToken = extractor2.get("stateToken");
+
+        TevaAssert.assertNotNull(extentTest, stateToken, "State token is present in response");
+
+        String provisionID = getProvisionID(stateToken);
+
+        extentTest.info("Insert the provision id in request body and connect the account of the user to the partner");
+        ConnectRequest connectRequest = objectMapper.readValue(PropertyUtils.readRequest("data", "connect"),
+                ConnectRequest.class);
+        connectRequest.connection.provisionID = provisionID;
+
+        given().log().all()
+                .filter(new ConsoleReportFilter(extentTest))
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .header("Content-Type", "application/json")
+                .header("External-Entity-Id", profile.getExternalEntityID())
+                .header("Authorization", "Bearer " + accessToken)
+                .body(connectRequest)
+                .when().log().all()
+                .post("/account/connect")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        extentTest.info("Get user account and verify the user's data transfer consent status to this partner is active in Http Response");
+        Response resGetAccount = given().log().all()
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .filter(new ConsoleReportFilter(extentTest))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .header("external-entity-id", profile.getExternalEntityID())
+                .request()
+                .when()
+                .log().all()
+                .get("/account")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        JsonPath js2 = resGetAccount.jsonPath();
+        List<LinkedHashMap<String, String>> allConsents = js2.getList("account.consents");
+        for (LinkedHashMap<String, String> consent : allConsents) {
+            if (consent.get("consentType").equalsIgnoreCase("dataTransferConsent")) {
+                if (consent.get("partnerID").equalsIgnoreCase(partnerID)) {
+                    TevaAssert.assertEquals(extentTest, consent.get("status"), "Active", "Data transfer consent status is active");
+                }
+            }
+        }
+
+        extentTest.info("Set Consent Start Date for A later Date than dsas creation");
+        PartnerUserConnectionRepository partnerUserConnectionRepository = new PartnerUserConnectionRepository();
+        PartnerUserConnection partnerUserConnection = partnerUserConnectionRepository.findConsentByPatientPartner(profile.getExternalEntityID(), partnerID);
+
+        partnerUserConnection.setConsentStartDate("2022-03-01T00:00:00");
+
+        partnerUserConnectionRepository.updatePatientPartnerConsent(partnerUserConnection);
+
+        List<DailySelfAssessment> dsaList = new ArrayList<>();
+
+
+        DailySelfAssessment dsa = DsaGenerator.getDsa();
+        dsa.date = "2020-01-01";
+        dsa.assessment = 1;
+        dsaList.add(dsa);
+
+        DailySelfAssessment dsa2 = DsaGenerator.getDsa();
+        dsa2.date = "2021-01-01";
+        dsa2.assessment = 2;
+        dsaList.add(dsa2);
+
+        DailySelfAssessment dsa3 = DsaGenerator.getDsa();
+        dsa3.date = "2022-01-01";
+        dsa3.assessment = 3;
+        dsaList.add(dsa3);
+
+        UploadDsasRequest uploadDsaRequest = new UploadDsasRequest(dsaList);
+
+        extentTest.info("Upload DSA for the user");
+        given().log().all()
+                .filter(new ConsoleReportFilter(extentTest))
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .header("Content-Type", "application/json")
+                .header("External-Entity-Id", profile.getExternalEntityID())
+                .header("Authorization", "Bearer " + accessToken)
+                .header("device-uuid", userUUID)
+                .body(uploadDsaRequest)
+                .when().log().all()
+                .post("/questionnaire/dsas")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        extentTest.info("Get user's  dsa by partner, Expecting HTTP Response error code 404, because No DSAs found after consent date");
+        Response response4 = given().log().all()
+                .filter(new ConsoleReportFilter(extentTest))
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .header("X-API-Key", apiKey)
+                .pathParam("patientID", patientID)
+                .get("data/dsa/{patientID}")
+                .then()
+                .log().all()
+                .extract().response();
+
+        TevaAssert.assertEquals(extentTest, response4.getStatusCode(), 404, "Expecting HTTP Response error code 404, because No DSAs found that have been created after consent date");
+
+    }
+
+    @Test(priority = 2, testName = "Get DSAs data by partner, for not connected user")
+    @Traceability(FS = {"1657"})
+    public void tc02_getDsaNoConnection() throws IOException, InterruptedException {
+        ExtentTest extentTest = ExtentManager.getTest(this.getClass());
+        String patientID = UUID.randomUUID().toString();
+
+        Map<String, String> environment = LambdaUtils.getLambdaConfiguration(PropertyUtils.readProperty("getPatientInhalations"));
+
+        extentTest.info("Set volumeTransferEnabled and peakFlowTransferEnabled As true");
+        environment.put("volumeTransferEnabled", "true");
+        environment.put("peakFlowTransferEnabled", "true");
+
+        LambdaUtils.updateLambdaConfiguration(PropertyUtils.readProperty("getPatientInhalations"), environment);
+
+        extentTest.info("Onboard a new partner");
+        PartnerRequest partnerRequest = objectMapper.readValue(PropertyUtils.readRequest("partner", "newPartner"),
+                PartnerRequest.class);
+        partnerRequest.name = UUID.randomUUID().toString();
+
+        this.partnerID = createPartner(extentTest, partnerRequest);
+
+        extentTest.info("Generate new API key with valid read data scope");
+
+
+        //generate api key
+        GenerateApiRequest apiKeyRequest = objectMapper.readValue(PropertyUtils.readRequest("partner", "newApiKey"),
+                GenerateApiRequest.class);
+
+        Response response = given().log().all()
+                .filter(new ConsoleReportFilter(extentTest))
+                .baseUri(PropertyUtils.readProperty("adminUrl"))
+                .basePath("configuration/partners")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + accessToken)
+                .pathParam("partnerID", partnerID)
+                .body(apiKeyRequest)
+                .when()
+                .post("/{partnerID}/key")
+                .then()
+                .log().all()
+                .extract().response();
+
+
+        JsonPath extractor = response.jsonPath();
+        String apiKey = extractor.get("apiKey");
+        registerApiKey(partnerID, apiKey);
+        
+        extentTest.info("Create new user account");
+        profile = ProfileGenerator.getProfile();
+        Profile profile = ProfileGenerator.getProfile();
+        ProfileCreationRequest profileCreationRequest = new ProfileCreationRequest(profile);
+
+        given().log().all()
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .filter(new ConsoleReportFilter(extentTest))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .header("email", profile.getEmail())
+                .header("external-entity-id", profile.getExternalEntityID())
+                .request()
+                .body(profileCreationRequest)
+                .when()
+                .log().all()
+                .post("/account/profile")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+
+        extentTest.info("Create new mobile device to the user");
+        mobileApplication = MobileApplicationGenerator.getATTTE();
+        MobileApplication mobileApplication = MobileApplicationGenerator.getATTTE();
+        RegisterMobileApplicationRequest registerMobileApplicationRequest = new RegisterMobileApplicationRequest(mobileApplication);
+
+        given()
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .filter(new ConsoleReportFilter(extentTest))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .header("external-entity-id", profile.getExternalEntityID())
+                .request()
+                .body(registerMobileApplicationRequest)
+                .when()
+                .log().all()
+                .post("/application/mobile")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        String userUUID = mobileApplication.getUUID();
+
+        extentTest.info("Create digihaler medical device to the user");
+        MedicalDevice medicalDevice = MedicalDeviceGenerator.getProAir();
+
+        RegisterMedicalDeviceRequest registerMedicalDeviceRequest = new RegisterMedicalDeviceRequest(medicalDevice);
+
+        given()
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .filter(new ConsoleReportFilter(extentTest))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .header("external-entity-id", profile.getExternalEntityID())
+                .header("device-uuid", mobileApplication.getUUID())
+                .request()
+                .body(registerMedicalDeviceRequest)
+                .when()
+                .log().all()
+                .post("/device/digihaler")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        extentTest.info("Upload inhalations for the user");
+        List<Inhalation> inhalations = new ArrayList<>();
+
+        for (int i = 0; i < 2; i++) {
+            Inhalation inhalation = InhalationGenerator.generateGoodInhalation(medicalDevice);
+            Inhalation inhalation2 = InhalationGenerator.generateFairInhalation(medicalDevice);
+            inhalations.add(inhalation);
+            inhalations.add(inhalation2);
+            inhalation.event.id = 1;
+            inhalation.event.peakFlow = 90;
+            inhalation.event.volume = 5;
+            inhalation2.event.id = 2;
+            inhalation2.event.peakFlow = 90;
+            inhalation2.event.volume = 5;
+
+        }
+
+        UploadInhalationsRequest uploadInhalationsRequest = new UploadInhalationsRequest(inhalations);
+
+        given()
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .filter(new ConsoleReportFilter(extentTest))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .header("external-entity-id", profile.getExternalEntityID())
+                .header("device-uuid", mobileApplication.getUUID())
+                .request()
+                .body(uploadInhalationsRequest)
+                .when()
+                .log().all()
+                .post(" /medication/administration/inhalations")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        extentTest.info("Get user account and verify the user's data transfer consent status to this partner is active in Http Response");
+        Response resGetAccount = given().log().all()
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .filter(new ConsoleReportFilter(extentTest))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .header("external-entity-id", profile.getExternalEntityID())
+                .request()
+                .when()
+                .log().all()
+                .get("/account")
+                .then()
+                .log().all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        JsonPath js2 = resGetAccount.jsonPath();
+        List<LinkedHashMap<String, String>> allConsents = js2.getList("account.consents");
+        for (LinkedHashMap<String, String> consent : allConsents) {
+            if (consent.get("consentType").equalsIgnoreCase("dataTransferConsent")) {
+                if (consent.get("partnerID").equalsIgnoreCase(partnerID)) {
+                    TevaAssert.assertEquals(extentTest, consent.get("status"), "withdrawn", "Data transfer consent status is active");
+                }
+            }
+        }
+
+        List<DailySelfAssessment> dsaList = new ArrayList<>();
+
+        DailySelfAssessment dsa = DsaGenerator.getDsa();
+        dsa.date = "2020-01-01";
+        dsa.assessment = 1;
+        dsaList.add(dsa);
+
+        DailySelfAssessment dsa2 = DsaGenerator.getDsa();
+        dsa2.date = "2021-01-01";
+        dsa2.assessment = 2;
+        dsaList.add(dsa2);
+
+        DailySelfAssessment dsa3 = DsaGenerator.getDsa();
+        dsa3.date = "2022-01-01";
+        dsa3.assessment = 3;
+        dsaList.add(dsa3);
+
+        UploadDsasRequest uploadDsaRequest = new UploadDsasRequest(dsaList);
+
+        extentTest.info("Upload DSA for the user");
+        given().log().all()
+                .filter(new ConsoleReportFilter(extentTest))
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .header("Content-Type", "application/json")
+                .header("External-Entity-Id", profile.getExternalEntityID())
+                .header("Authorization", "Bearer " + accessToken)
+                .header("device-uuid", userUUID)
+                .body(uploadDsaRequest)
+                .when().log().all()
+                .post("/questionnaire/dsas")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .extract().response();
+
+        extentTest.info("Get user's  dsa by partner, Expecting HTTP Response error code 400, because no connection between user and partner");
+        Response response4 = given().log().all()
+                .filter(new ConsoleReportFilter(extentTest))
+                .baseUri(PropertyUtils.readProperty("platformUrl"))
+                .header("X-API-Key", apiKey)
+                .pathParam("patientID", patientID)
+                .get("data/dsa/{patientID}")
+                .then()
+                .log().all()
+                .extract().response();
+
+        TevaAssert.assertEquals(extentTest, response4.getStatusCode(), 400, "Expecting HTTP Response error code 400, because no connection between user and partner");
+    }
+}
+

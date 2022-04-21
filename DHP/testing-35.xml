@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Digital Health Platform - 3.5">
+    <listeners>
+        <listener class-name="com.tevapharm.attte.extentReports.TestListeners"/>
+    </listeners>
+    <test thread-count="5" name="DHP 3.5">
+        <classes>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.consent.DeleteConsentNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.consent.DeleteConsentPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.consent.OnboardOrganizationConsentNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.consent.OnboardOrganizationConsentPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.consent.OnboardPartnerConsentNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.consent.OnboardPartnerConsentPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.consent.OnboardProgramConsentNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.consent.OnboardProgramConsentPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.image.DeleteImagePositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.image.UploadImageNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.image.UploadImagePositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.CreatePartnerNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.CreatePartnerPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.DeletePartnerNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.DeletePartnerPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.GenerateApiKeyNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.GenerateApiKeyPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.GetApiKeyDetailsNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.GetApiKeyDetailsPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.GetListOfPartnersPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.GetSpecificPartnerDetailsNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.GetSpecificPartnerDetailsPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.RevokeApiKeyPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.UpdatePartnerNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.configuration.partner.UpdatePartnerPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.ConnectAccountNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.ConnectAccountPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.DataApiRequestAuthorizationNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.DataApiRequestAuthorizationPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.DataGetAuthorizationVersionPositiveNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.DataGetKeyByPartnerNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.DataGetKeyByPartnerPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.DataGetPartnerByPatientPositiveNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.DataGetPartnerDetailsByPartnerNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.DataGetPartnerDetailsByPartnerPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.ExpiredApiKeyPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.GetDependentDataE2ETest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.GetUserDsaByPartnerNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.GetUserDsaByPartnerPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.GetUserInhalationsByPartnerNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.GetUserInhalationsByPartnerPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.GetUserInhalersByPartnerNegativeTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.GetUserInhalersByPartnerPositiveTest"/>
+            <class name="com.tevapharm.automation.dhp.tests.dss.data.PartnerConfigurationLimitationPositiveTest"/>
+        </classes>
+    </test> <!-- Test -->
+</suite> <!-- Suite -->

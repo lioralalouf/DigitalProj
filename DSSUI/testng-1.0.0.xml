@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Digital Health Platform - 3.5">
+    <listeners>
+        <listener class-name="com.tevapharm.attte.extentReports.TestListeners"></listener>
+    </listeners>
+    <test thread-count="5" name="DSS UI 1.0.0">
+        <classes>
+            <class name="com.tevapharm.automation.dssui.tests.ui.AuthorizationPagePositiveTest"/>
+            <class name="com.tevapharm.automation.dssui.tests.ui.ConsentPageNegativeTest"/>
+            <class name="com.tevapharm.automation.dssui.tests.ui.ConsentPagePositiveTest"/>
+            <class name="com.tevapharm.automation.dssui.tests.ui.DeletePartnerNegativeTest"/>
+            <class name="com.tevapharm.automation.dssui.tests.ui.DeletePartnerPositiveTest"/>
+            <class name="com.tevapharm.automation.dssui.tests.ui.FailureScreenPositiveTest"/>
+            <class name="com.tevapharm.automation.dssui.tests.ui.LoginPagePositiveTest"/>
+            <class name="com.tevapharm.automation.dssui.tests.ui.MarketingScreenPositiveTest"/>
+            <class name="com.tevapharm.automation.dssui.tests.ui.SuccessScreenPositiveTest"/>
+            <class name="com.tevapharm.automation.dssui.tests.ui.VendorMockPositiveTest"/>
+        </classes>
+    </test> <!-- Test -->
+</suite> <!-- Suite -->
